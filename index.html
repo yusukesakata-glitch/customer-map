@@ -170,6 +170,11 @@
         .stats-item { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
         .stats-item.pin-fixed { position: sticky; left: 0; z-index: 3; background: #fdf3d3; border-color: var(--gold); color: var(--navy-dark); box-shadow: 8px 0 10px -6px rgba(31, 58, 95, 0.35); }
         .stats-item.pressing { transform: scale(0.94); background: #f3d98b; }
+        .stats-grid.dragging, #result-area.dragging { user-select: none; -webkit-user-select: none; }
+        @media (hover: hover) and (pointer: fine) {
+            .stats-grid, #result-area { cursor: grab; }
+            .stats-grid.dragging, #result-area.dragging { cursor: grabbing; }
+        }
         .stats-item.selected { background: var(--navy); color: #fff; border-color: var(--navy); }
         .stats-count { font-weight: 800; margin-left: 5px; }
 
@@ -466,6 +471,34 @@
     
         .cov-right { display: flex; align-items: center; gap: 6px; }
         .cov-go { color: #9db8cc; font-size: 1.15rem; font-weight: 700; line-height: 1; }
+
+        /* 見込み店レイヤー */
+        .prospect-bar { position: absolute; left: 10px; bottom: 264px; z-index: 41; display: flex; }
+        .seg-bar {
+            background: rgba(255,255,255,0.96); border: 1px solid #d8e2ec; border-radius: 999px;
+            padding: 3px; box-shadow: 0 2px 8px rgba(21,42,71,0.10); gap: 2px;
+        }
+        .seg-btn {
+            border: none; background: transparent; color: #536b7d; border-radius: 999px;
+            padding: 8px 14px; min-height: 38px; font-size: 0.8rem; font-weight: 700;
+            cursor: pointer; font-family: inherit; white-space: nowrap;
+        }
+        .seg-btn { position: relative; z-index: 1; transition: color 0.25s; }
+        .seg-btn.on { background: transparent; color: #fff; }
+        .prospect-restore {
+            position: absolute; left: 10px; bottom: 366px; z-index: 41;
+            background: rgba(255,255,255,0.96); border: 1px solid #d8e2ec; color: #536b7d;
+            border-radius: 999px; padding: 5px 12px; font-size: 0.72rem; font-weight: 700;
+            cursor: pointer; font-family: inherit; box-shadow: 0 2px 8px rgba(21,42,71,0.10);
+        }
+        .customer-item .tag-prospect { background: #eef1f4 !important; border: 1px solid #d5dde4 !important; color: #5b6b7a !important; font-weight: 700; }
+        .customer-item .tag-permit { background: #fdf6e0 !important; border: 1px solid #e8d48b !important; color: #8a6d1f !important; font-weight: 700; }
+        .prospect-src a { color: #3868a8; text-decoration: none; font-weight: 600; }
+        .conquest-btn { position: absolute; left: 10px; bottom: 318px; z-index: 41; background: rgba(255,255,255,0.96); border: 1px solid #d8e2ec; color: #536b7d; border-radius: 999px; padding: 8px 14px; min-height: 38px; font-size: 0.8rem; font-weight: 700; cursor: pointer; font-family: inherit; box-shadow: 0 2px 8px rgba(21,42,71,0.10); transition: background 0.25s, color 0.25s, border-color 0.25s; }
+        .conquest-btn.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+        .seg-thumb { position: absolute; top: 3px; bottom: 3px; left: 0; background: var(--navy); border-radius: 999px; z-index: 0; transition: transform 0.38s cubic-bezier(0.22, 0.9, 0.3, 1), width 0.38s cubic-bezier(0.22, 0.9, 0.3, 1); }
+        .town-bar { height: 8px; border-radius: 4px; background: #eef3f7; margin-top: 8px; overflow: hidden; }
+        .town-fill { height: 8px; border-radius: 4px; }
         @media (min-width: 900px) {
             .right-section > .btn-current-loc { position: absolute; top: 64px; right: 12px; bottom: auto; margin: 0; align-self: auto; z-index: 45; }
             #result-area { align-items: stretch; }
@@ -493,6 +526,13 @@
         <div class="map-wrapper">
             <div id="google-map-view"></div>
             <div id="map-placeholder-msg">マップ読込中...</div>
+            <button class="prospect-restore" id="prospectRestore" style="display:none;" onclick="restoreHiddenProspects()">隠した見込み店を戻す</button>
+            <div class="prospect-bar seg-bar">
+                <button class="seg-btn" data-pmode="both" onclick="setProspectMode('both')">両方</button>
+                <button class="seg-btn" data-pmode="only" onclick="setProspectMode('only')">見込みのみ</button>
+                <button class="seg-btn" data-pmode="off" onclick="setProspectMode('off')">顧客のみ</button>
+            </div>
+            <button class="conquest-btn" id="conquestBtn" onclick="toggleConquest()">制覇マップ</button>
         </div>
     </div>
 
@@ -628,6 +668,28 @@
     </div>
 </div>
 
+<div id="prospectEditModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3>見込み店の編集</h3>
+        <input type="hidden" id="pedit-id"><input type="hidden" id="pedit-orig-addr">
+        <label>店名</label><input type="text" id="pedit-name">
+        <label>ジャンル</label><input type="text" id="pedit-genre">
+        <label>住所</label><input type="text" id="pedit-addr">
+        <label>電話番号</label><input type="text" id="pedit-tel">
+        <label>最寄り駅</label><input type="text" id="pedit-station">
+        <label>求人サイト名</label><input type="text" id="pedit-jobsrc">
+        <label>求人ページURL</label><input type="text" id="pedit-joburl">
+        <label>メモ</label>
+        <textarea id="pedit-note" style="height:80px;"></textarea>
+        <div style="display:flex; gap:15px; margin-top:30px;">
+            <button class="btn-sub" style="flex:1;" onclick="closeProspectModal()">キャンセル</button>
+            <button class="btn-main" style="flex:1; margin-top:0;" onclick="saveProspectEdit()">保存</button>
+        </div>
+        <button class="btn-del" style="margin-top:20px; border:none;" onclick="hideProspect()">この店を隠す</button>
+        <button class="btn-del" id="pedit-reset" style="margin-top:6px; border:none; display:none;" onclick="resetProspectEdit()">編集を元に戻す</button>
+    </div>
+</div>
+
 <script src="stations.js"></script>
 <script>
     const DB_NAME = "map_db"; 
@@ -671,7 +733,22 @@
     let map, geocoder, AdvancedMarkerElement;
     let markers = [];
     let markerPool = new Map();
-    let infoWindow; 
+    let infoWindow;
+
+    /* 見込み店レイヤーの状態 */
+    let prospects = [];
+    let prospectsRaw = [];
+    let prospectMarkers = [];
+    let prospectMode = 'both';
+    try { prospectMode = localStorage.getItem('map_prospect_mode') || 'both'; } catch(e) {}
+    if(['both', 'only', 'off'].indexOf(prospectMode) === -1) prospectMode = 'both';
+    let highlightedProspectId = null;
+    let prospectsLoaded = false;
+    let prospectGeocoding = false;
+    function loadProspectEdits() { try { return JSON.parse(localStorage.getItem('map_prospect_edits') || "{}"); } catch(e) { return {}; } }
+    function saveProspectEdits(edits) { try { localStorage.setItem('map_prospect_edits', JSON.stringify(edits)); } catch(e) {} }
+    function prospectHiddenSet() { try { return new Set(JSON.parse(localStorage.getItem('map_prospect_hidden') || "[]")); } catch(e) { return new Set(); } }
+    function saveProspectHidden(set) { try { localStorage.setItem('map_prospect_hidden', JSON.stringify(Array.from(set))); } catch(e) {} }
 
     window.gm_authFailure = function() {
         alert("APIキーエラーです。\n設定を確認してください。");
@@ -701,8 +778,10 @@
         } else {
             document.getElementById('map-placeholder-msg').innerHTML = "設定からAPIキーを<br>設定してください";
         }
+        syncProspectBar();
+        loadProspects();
         updateStorageInfo();
-        
+
     };
 
 
@@ -820,11 +899,13 @@
                 map.addListener('idle', () => { const wasPin = isPinClick; isPinClick = false; if(!mapSyncMode || wasPin) return; updateMapPins(window._lastDisplay || []); });
                 map.addListener('dragstart', () => { if(watchId) { isTrackingLocked=false; nearbySort=null; updateGpsBtnState(); } });
                 map.addListener('click', () => {
-                    if (highlightedId) { highlightedId = null; document.querySelectorAll('.customer-item.highlighted').forEach(el => el.classList.remove('highlighted')); updateMapPins(window._lastDisplay || []); }
+                    if (highlightedId || highlightedProspectId) { highlightedId = null; highlightedProspectId = null; document.querySelectorAll('.customer-item.highlighted').forEach(el => el.classList.remove('highlighted')); updateMapPins(window._lastDisplay || []); }
                     if(infoWindow) infoWindow.close();
                 });
                 msgEl.style.display = 'none';
                 if(db.length > 0) render();
+                renderProspectPins();
+                maybeGeocodeProspects();
             } catch(e) {
                 _initPromise = null;
                 msgEl.style.display = '';
@@ -1041,6 +1122,7 @@
         }
 
         if(highlightedId && !pinsToShow.some(c => c.id === highlightedId)) { const hc = db.find(c => c.id === highlightedId && c.lat && c.lng); if(hc) pinsToShow = pinsToShow.concat(hc); }
+        if(prospectMode === 'only') pinsToShow = [];
         const grouped = {};
         pinsToShow.forEach(c => {
             if(c.lat && c.lng) {
@@ -1115,6 +1197,7 @@
         markers = Array.from(markerPool.values()).map(e => e.marker);
         if(hasPin && !mapSyncMode && !watchId && !window._pinsNoFit) map.fitBounds(bounds);
         window._pinsNoFit = false;
+        renderProspectPins(); renderConquest();
     }
 
     function getPrefecture(a) { const m=a.match(/(...??[都道府県])/); return m?m[1]:"その他"; }
@@ -1252,10 +1335,54 @@
         const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } el.classList.remove('pressing'); };
         el.addEventListener('pointerup', cancel);
         el.addEventListener('pointercancel', cancel);
+        el.addEventListener('pointerleave', cancel);
         el.addEventListener('pointermove', (e) => { if (Math.abs(e.clientX - sx) > 12 || Math.abs(e.clientY - sy) > 12) cancel(); });
         el.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     function toggleRep(name) { if(activeReps.has(name)) activeReps.delete(name); else activeReps.add(name); render(); }
+
+    // PC（マウス）向け：横スクロール領域をドラッグで送れるようにし、縦ホイールも横スクロールに変換する。タッチは標準のスクロールのまま
+    function enableDragScroll(el) {
+        if (!el || el._dragScrollInit) return; el._dragScrollInit = true;
+        let down = false, dragging = false, sx = 0, sl = 0;
+        el.addEventListener('pointerdown', (e) => {
+            if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return;
+            if (e.button !== 0) return;
+            down = true; dragging = false; sx = e.clientX; sl = el.scrollLeft;
+        });
+        el.addEventListener('pointermove', (e) => {
+            if (!down) return;
+            const dx = e.clientX - sx;
+            if (!dragging && Math.abs(dx) > 5) {
+                dragging = true; el.classList.add('dragging');
+                el.dataset._snap = el.style.scrollSnapType || '';
+                el.style.scrollSnapType = 'none';
+            }
+            if (dragging) el.scrollLeft = sl - dx;
+        });
+        const end = () => {
+            if (!down) return; down = false;
+            if (dragging) {
+                dragging = false; el.classList.remove('dragging');
+                el.style.scrollSnapType = el.dataset._snap || '';
+                window._dragSuppressUntil = Date.now() + 350;
+            }
+        };
+        el.addEventListener('pointerup', end);
+        el.addEventListener('pointercancel', end);
+        el.addEventListener('click', (e) => {
+            if (Date.now() < (window._dragSuppressUntil || 0)) { e.stopPropagation(); e.preventDefault(); }
+        }, true);
+        el.addEventListener('wheel', (e) => {
+            if (!e.deltaY || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+            const max = el.scrollWidth - el.clientWidth;
+            if (max <= 0) return;
+            const clamped = Math.max(0, Math.min(max, el.scrollLeft + e.deltaY));
+            if (clamped !== el.scrollLeft) { el.scrollLeft = clamped; e.preventDefault(); }
+        }, { passive: false });
+    }
+    enableDragScroll(document.getElementById('stats-detail'));
+    enableDragScroll(document.getElementById('result-area'));
 
     function render() {
         const area = document.getElementById('result-area'); area.innerHTML = "";
@@ -1369,10 +1496,16 @@
             </div>`;
             area.appendChild(div);
         };
-        let _shown = 0;
-        const _take = () => { const part = displayTargets.slice(_shown, _shown + 60); part.forEach(buildCard); _shown += part.length; };
-        _take();
-        window._appendCards = _take;
+        if(conquestMode) {
+            buildTownCards(area);
+            window._appendCards = () => {};
+        } else {
+            let _shown = 0;
+            const _take = () => { if(prospectMode === 'only') return; const part = displayTargets.slice(_shown, _shown + 60); part.forEach(buildCard); _shown += part.length; };
+            _take();
+            appendProspectCards(area);
+            window._appendCards = () => { _take(); _takeProspects(area); };
+        }
     }
 
     function panToMap(id, lat, lng) {
@@ -1515,6 +1648,470 @@
     function uploadData(i) { const f=i.files[0]; i.value=""; if(!f)return; const _fd = f.lastModified ? new Date(f.lastModified) : null; const _fds = _fd ? `${_fd.getFullYear()}-${String(_fd.getMonth()+1).padStart(2,'0')}-${String(_fd.getDate()).padStart(2,'0')}` : ""; const r=new FileReader(); r.onload=e=>{ try { const incoming = JSON.parse(e.target.result); if(!Array.isArray(incoming)) { alert("読み込み失敗"); return; } if(confirm(`JSONファイルを読み込みますか？\nデータ ${incoming.length.toLocaleString()} 件${_fds ? `／ファイル日付 ${_fds}` : ""}`)) { localStorage.setItem('map_data_info', JSON.stringify({ count: incoming.filter(d => d.credit !== '現存せず').length, fileDate: _fds })); const noteByCode = {}; db.forEach(d => { if(d.r_code && (d.note || "").trim()) noteByCode[d.r_code] = d.note; }); let kept = 0; incoming.forEach(d => { if(d.r_code && !(d.note || "").trim() && noteByCode[d.r_code]) { d.note = noteByCode[d.r_code]; kept++; } }); const droppedGone = incoming.filter(d => d.credit === '現存せず').length; db = incoming.filter(d => d.credit !== '現存せず'); saveDB(); populateFilters(); resetAndRender(); updateStorageInfo(); alert(`読み込み完了（メモ ${kept} 件を引き継ぎました${droppedGone ? `／現存せず ${droppedGone} 件を除外` : ""}）`); } } catch(z) { alert("読み込み失敗"); } }; r.readAsText(f); }
     function saveDB() { localStorage.setItem(DB_NAME, JSON.stringify(db)); }
 
+    /* ===== 見込み店レイヤー ===== */
+    function digitsOf(s) { return (s || "").replace(/\D/g, ""); }
+    function addrParts(addr) {
+        // 住所文字列を {town, banchi, floor, building} に分解する（重複判定用）
+        let s = normalize(addr || "");
+        const out = { town: "", banchi: "", floor: "", building: "" };
+        if(!s) return out;
+        const pm = s.match(/^.*?(都|道|府|県)/);
+        if(pm) s = s.slice(pm[0].length);
+        const tm = s.match(/^[^0-9]+/);
+        if(tm) { out.town = tm[0]; s = s.slice(tm[0].length); }
+        let rest = s, bm = null;
+        if((bm = rest.match(/^(\d+)丁目(\d+)(?:-(\d+))?(?:番地)?(?:(\d+)号)?/))) out.banchi = [bm[1], bm[2], bm[3] || bm[4]].filter(Boolean).join("-");
+        else if((bm = rest.match(/^(\d+)-(\d+)(?:-(\d+))?/))) out.banchi = [bm[1], bm[2], bm[3]].filter(Boolean).join("-");
+        else if((bm = rest.match(/^(\d+)番地?(?:(\d+)号)?/))) out.banchi = [bm[1], bm[2]].filter(Boolean).join("-");
+        if(bm) rest = rest.slice(bm[0].length);
+        let fm = null;
+        if((fm = s.match(/地下(\d+)階/))) out.floor = "b" + fm[1];
+        else if((fm = s.match(/(?:^|[^0-9a-z])(b\d+)f/))) out.floor = fm[1];
+        else if((fm = s.match(/(?:^|[^0-9a-z])(b\d+)(?![0-9])/))) out.floor = fm[1];
+        else if((fm = s.match(/(?:^|[^0-9])(\d+)階/))) out.floor = fm[1];
+        else if((fm = s.match(/(?:^|[^0-9a-z])(\d+)f(?:[^0-9a-z]|$)/))) out.floor = fm[1];
+        out.building = rest.replace(/地下?\d+階/, "").replace(/(b\d+|\d+)f/, "").replace(/b\d+$/, "").replace(/\d+号室/, "").replace(/^(ビル|・|、|,|-|‐)+/, "").trim();
+        return out;
+    }
+    const GENRE_WORDS = ["ガールズバー", "キャバクラ", "スナック", "ラウンジ", "クラブ", "ダイニングバー", "ショットバー", "ホストクラブ", "ガールズ", "メンズ", "レディース", "カラオケ", "居酒屋", "パブ", "カフェ", "バー", "girlsbar", "girl'sbar", "club", "snack", "lounge", "bar", "pub", "cafe"];
+    function coreName(name) {
+        let n = normalize(name || "");
+        n = n.replace(/[☆★♪◆◇・.,、。!！?？~〜「」『』()（）\[\]【】]/g, "");
+        let changed = true;
+        while(changed) {
+            changed = false;
+            for(const w of GENRE_WORDS) {
+                if(n.startsWith(w) && n.length > w.length) { n = n.slice(w.length); changed = true; }
+                if(n.endsWith(w) && n.length > w.length) { n = n.slice(0, n.length - w.length); changed = true; }
+            }
+        }
+        n = n.replace(/(本店|支店|駅前店|店)$/, "");
+        return n;
+    }
+    let dupIndex = null, dupIndexDb = null;
+    function buildDupIndex() {
+        const byTown = new Map(); const phones = new Set();
+        db.forEach(c => {
+            const t = digitsOf(c.tel); if(t) phones.add(t);
+            const cp = addrParts((c.address || "") + (c.building || ""));
+            if(!cp.town) return;
+            if(!byTown.has(cp.town)) byTown.set(cp.town, []);
+            byTown.get(cp.town).push({ cp: cp, cores: [coreName(c.name), coreName(splitName(c).shop || "")], norms: [normalize(c.name), normalize(splitName(c).shop || "")] });
+        });
+        dupIndex = { byTown: byTown, phones: phones }; dupIndexDb = db;
+    }
+    function isProspectDup(p) {
+        if(!dupIndex || dupIndexDb !== db) buildDupIndex();
+        const pn = normalize(p.name);
+        if(!pn) return false;
+        const pt = digitsOf(p.tel);
+        if(pt && dupIndex.phones.has(pt)) return true;
+        const pp = addrParts(p.address);
+        if(!pp.town) return false;
+        const pcore = coreName(p.name);
+        const list = dupIndex.byTown.get(pp.town) || [];
+        return list.some(e => {
+            const cp = e.cp;
+            if(pp.banchi && pp.banchi === cp.banchi && pp.floor && pp.floor === cp.floor && pp.building && cp.building && (pp.building === cp.building || pp.building.includes(cp.building) || cp.building.includes(pp.building))) return true;
+            if(pcore.length >= 2 && e.cores.some(cc => cc.length >= 2 && (pcore === cc || cc.includes(pcore) || pcore.includes(cc)))) return true;
+            if(pcore && pp.banchi && pp.banchi === cp.banchi && e.cores.some(cc => cc && cc === pcore)) return true;
+            if(e.norms.some(n => n === pn)) return true;
+            return false;
+        });
+    }
+    let candVer = 0, candCache = null, candCacheKey = "";
+    function prospectCandidates() {
+        const hidden = prospectHiddenSet();
+        const key = db.length + "|" + (db[0] ? db[0].id : "") + "|" + prospects.length + "|" + hidden.size + "|" + candVer;
+        if(candCache && candCacheKey === key) return candCache;
+        candCache = prospects.filter(p => !hidden.has(p.id) && !isProspectDup(p));
+        candCacheKey = key;
+        return candCache;
+    }
+    function loadProspects() {
+        fetch('prospects.json', { cache: 'no-store' }).then(r => { if(!r.ok) throw new Error('prospects load failed'); return r.json(); }).then(list => {
+            if(!Array.isArray(list)) return;
+            prospectsRaw = list;
+            const edits = loadProspectEdits();
+            prospects = list.map(p => edits[p.id] ? Object.assign({}, p, edits[p.id]) : p);
+            try {
+                const cache = JSON.parse(localStorage.getItem('map_prospect_geo') || "{}");
+                prospects.forEach(p => { const g = cache[p.id]; if(g && (p.lat == null || p.lng == null)) { p.lat = g.lat; p.lng = g.lng; } });
+            } catch(e) {}
+            candVer++; prospectsLoaded = true;
+            syncProspectBar();
+            render();
+            maybeGeocodeProspects();
+        }).catch(() => {});
+    }
+    function saveProspectGeo(p) {
+        try {
+            const cache = JSON.parse(localStorage.getItem('map_prospect_geo') || "{}");
+            cache[p.id] = { lat: p.lat, lng: p.lng };
+            localStorage.setItem('map_prospect_geo', JSON.stringify(cache));
+        } catch(e) {}
+    }
+    async function maybeGeocodeProspects() {
+        if(prospectGeocoding || !prospectsLoaded || !geocoder) return;
+        const targets = prospectDisplayList().filter(p => p.lat == null || p.lng == null).slice(0, 60);
+        if(!targets.length) return;
+        prospectGeocoding = true;
+        let geoDone = 0;
+        for(const p of targets) {
+            try {
+                const coords = await new Promise((res, rej) => geocoder.geocode({ address: p.address }, (r, s) => s === 'OK' ? res({ lat: r[0].geometry.location.lat(), lng: r[0].geometry.location.lng() }) : rej(s)));
+                p.lat = coords.lat; p.lng = coords.lng;
+                saveProspectGeo(p);
+                geoDone++;
+                if(geoDone % 15 === 0) renderProspectPins();
+            } catch(e) {}
+            await new Promise(r => setTimeout(r, 400));
+        }
+        renderProspectPins();
+        prospectGeocoding = false;
+    }
+    let prospectPinSig = "";
+    let prospectPool = new Map();
+    function renderProspectPins() {
+        if(!map || !AdvancedMarkerElement) return;
+        if(prospectMode === 'off') { prospectPool.forEach(e => { e.marker.map = null; }); prospectPool.clear(); prospectMarkers = []; return; }
+        let pinList = prospectDisplayList().slice(0, 300);
+        if(highlightedProspectId && !pinList.some(p => p.id === highlightedProspectId)) { const hp = prospects.find(p => p.id === highlightedProspectId); if(hp) pinList = pinList.concat(hp); }
+        const seen = new Set();
+        pinList.forEach(p => {
+            if(p.lat == null || p.lng == null) return;
+            seen.add(p.id);
+            const sel = p.id === highlightedProspectId;
+            const sig = (sel ? "1" : "0") + "|" + p.lat + "," + p.lng;
+            let e = prospectPool.get(p.id);
+            if(!e) {
+                const m = new AdvancedMarkerElement({ position: { lat: p.lat, lng: p.lng }, map: map, content: document.createElement("div"), zIndex: 50 });
+                m.addListener("click", () => { isPinClick = true; selectProspect(p.id); });
+                e = { marker: m, sig: "" };
+                prospectPool.set(p.id, e);
+            }
+            if(e.sig !== sig) {
+                e.sig = sig;
+                const pinView = document.createElement("div");
+                pinView.style.width = sel ? "30px" : "22px";
+                pinView.style.height = pinView.style.width;
+                pinView.style.backgroundColor = sel ? "#FFD60A" : "#7c8b9a";
+                pinView.style.borderRadius = "50% 50% 50% 0"; pinView.style.transform = "rotate(-45deg)"; pinView.style.border = "2.5px solid white"; pinView.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+                e.marker.content = pinView;
+                e.marker.position = { lat: p.lat, lng: p.lng };
+                e.marker.zIndex = sel ? 900 : 50;
+            }
+            if(e.marker.map !== map) e.marker.map = map;
+        });
+        prospectPool.forEach((e, id) => { if(!seen.has(id)) { e.marker.map = null; prospectPool.delete(id); } });
+        prospectMarkers = Array.from(prospectPool.values()).map(e => e.marker);
+    }
+    function buildProspectCard(p) {
+        const div = document.createElement('div');
+        div.className = 'customer-item prospect-item'; div.dataset.pid = p.id;
+        if(p.id === highlightedProspectId) div.classList.add('highlighted');
+        const dirUrl = "https://www.google.com/maps/dir/?api=1&destination=" + ((p.lat != null && p.lng != null) ? (p.lat + ',' + p.lng) : encodeURIComponent(p.address));
+        div.innerHTML = `<div style="flex:1;">
+            <div class="info-main no-company">
+                <span class="status-dot" style="background:#7c8b9a;"></span>
+                <span class="name-lines${p.name.length > 40 ? " shop-xl" : p.name.length > 21 ? " shop-l" : ""}"><span class="shop-name">${p.name}</span></span>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;">
+                <span class="tag tag-prospect">未登録</span>
+                ${p.status === 'permit' ? '<span class="tag tag-permit">開店未確認（許可ベース）</span>' : ''}
+            </div>
+            <div class="card-meta">${p.genre ? `<span>${p.genre}</span>` : ""}${p.station ? `<span class="meta-sep"></span><span>${p.station}</span>` : ""}</div>
+            <div class="card-addr-row"><span class="card-addr">${p.address}</span></div>
+            ${p.openLabel ? `<div class="info-sub" style="margin-top:5px;">${p.openLabel}</div>` : ""}
+            ${p.source ? `<div class="info-sub prospect-src">出典：${p.sourceUrl ? `<a href="${p.sourceUrl}" target="_blank" rel="noopener">${p.source}</a>` : p.source}</div>` : ""}
+            ${p.jobUrl ? `<div class="info-sub prospect-src">求人：<a href="${p.jobUrl}" target="_blank" rel="noopener">${p.jobSource || "求人ページ"}</a></div>` : ""}
+            ${p.note ? `<div class="note-box">${p.note}</div>` : ""}
+        </div>
+        <div class="action-area">
+            <button type="button" class="action-btn" onclick="openProspectEdit('${p.id}')">編集</button>
+            ${p.tel ? `<a href="tel:${p.tel}" class="action-btn">発信</a>` : ""}
+            <a href="${dirUrl}" target="_blank" rel="noopener" class="action-btn">経路</a>
+            <button type="button" class="action-btn" onclick="flyToProspect('${p.id}')">地図</button>
+        </div>`;
+        div.addEventListener('click', (e) => { if(e.target.closest('a,button')) return; flyToProspect(p.id); });
+        return div;
+    }
+    function flyToProspect(id) {
+        const p = prospects.find(x => x.id === id);
+        if(!p || !map) return;
+        highlightedProspectId = id;
+        highlightedId = null;
+        document.querySelectorAll('.customer-item.highlighted').forEach(el => el.classList.remove('highlighted'));
+        const cardEl = document.querySelector('.prospect-item[data-pid="' + id + '"]');
+        if(cardEl) cardEl.classList.add('highlighted');
+        renderProspectPins();
+        if(p.lat != null && p.lng != null) { releaseFollow(); map.setZoom(17); map.panTo({ lat: p.lat, lng: p.lng }); }
+        else maybeGeocodeProspects();
+    }
+    let prospectOrder = [];
+    let prospectShown = 0;
+    function prospectDisplayList() {
+        const list = prospectCandidates().slice();
+        if(map && window.google && google.maps && google.maps.geometry) {
+            const c = map.getCenter();
+            if(c) list.sort((a, b) => {
+                const da = (a.lat != null && a.lng != null) ? google.maps.geometry.spherical.computeDistanceBetween(c, new google.maps.LatLng(a.lat, a.lng)) : 1e12;
+                const db = (b.lat != null && b.lng != null) ? google.maps.geometry.spherical.computeDistanceBetween(c, new google.maps.LatLng(b.lat, b.lng)) : 1e12;
+                return da - db;
+            });
+        }
+        return list;
+    }
+    function _takeProspects(area) {
+        if(prospectMode === 'off') return;
+        const part = prospectOrder.slice(prospectShown, prospectShown + 40);
+        part.forEach(p => area.appendChild(buildProspectCard(p)));
+        prospectShown += part.length;
+    }
+    function appendProspectCards(area) {
+        if(prospectMode === 'off') return;
+        prospectOrder = prospectDisplayList();
+        prospectShown = 0;
+        _takeProspects(area);
+    }
+    let conquestMode = false;
+    let conquestShapes = [];
+    let conquestCache = null, conquestCacheKey = "";
+    function townLabel(full) { const i = full.lastIndexOf("区"); if(i >= 0) return full.slice(i + 1); const j = full.indexOf("市"); if(j >= 0) return full.slice(j + 1); return full; }
+    function townStats() {
+        const key = db.length + "|" + targetReps.join(",") + "|" + (db[0] ? db[0].id : "");
+        if(conquestCache && conquestCacheKey === key) return conquestCache;
+        const base = targetReps.length ? db.filter(d => targetReps.includes(d.rep_name)) : db;
+        const groups = {};
+        base.forEach(d => {
+            if((d.credit || "") === "現存せず") return;
+            const k = addrParts(d.address).town;
+            if(!k) return;
+            if(!groups[k]) groups[k] = { key: k, label: townLabel(k), total: 0, visited: 0, latSum: 0, lngSum: 0, geoN: 0 };
+            const g = groups[k];
+            g.total++;
+            if(VISIT_DATE_RE.test(d.note || "")) g.visited++;
+            if(typeof d.lat === "number" && typeof d.lng === "number" && d.lat && d.lng) { g.latSum += d.lat; g.lngSum += d.lng; g.geoN++; }
+        });
+        conquestCache = Object.values(groups).map(g => ({ key: g.key, label: g.label, total: g.total, visited: g.visited, pct: g.total ? Math.round(g.visited / g.total * 100) : 0, lat: g.geoN ? g.latSum / g.geoN : null, lng: g.geoN ? g.lngSum / g.geoN : null }));
+        conquestCacheKey = key;
+        return conquestCache;
+    }
+    function rateColor(pct) { if(pct >= 80) return "#D9A94A"; if(pct >= 55) return "#3868a8"; if(pct >= 35) return "#7ea6c9"; if(pct >= 15) return "#9db8cc"; return "#c3d3e2"; }
+    function toggleConquest() {
+        conquestMode = !conquestMode;
+        document.getElementById('conquestBtn').classList.toggle('on', conquestMode);
+        if(!conquestMode) clearConquest();
+        render();
+    }
+    function clearConquest() { conquestShapes.forEach(s => { if(s.setMap) s.setMap(null); }); conquestShapes = []; }
+    function renderConquest() {
+        clearConquest();
+        if(!conquestMode || !map || !window.google || !google.maps) return;
+        const b = map.getBounds();
+        let list = townStats().filter(g => g.lat != null && g.lng != null);
+        if(b) list = list.filter(g => b.contains(new google.maps.LatLng(g.lat, g.lng)));
+        const zoom = map.getZoom() || 15;
+        if(zoom < 12) list = list.filter(g => g.total >= 5);
+        list.sort((a, b2) => b2.total - a.total);
+        list = list.slice(0, zoom < 12 ? 15 : 40);
+        list.forEach(g => {
+            if(g.lat == null || g.lng == null) return;
+            const circle = new google.maps.Circle({ map: map, center: { lat: g.lat, lng: g.lng }, radius: Math.max(130, Math.min(650, 110 + Math.sqrt(g.total) * 55)), fillColor: rateColor(g.pct), fillOpacity: 0.42, strokeColor: "#ffffff", strokeWeight: 1.5, clickable: true, zIndex: 40 });
+            circle.addListener("click", () => focusTown(g.key));
+            conquestShapes.push(circle);
+            const el = document.createElement("div");
+            el.textContent = g.label + " " + g.pct + "%";
+            el.style.cssText = "background:rgba(255,255,255,0.92);border:1px solid #d8e2ec;color:#25475f;font-size:10px;font-weight:700;border-radius:999px;padding:2px 7px;white-space:nowrap;cursor:pointer;";
+            const mk = new AdvancedMarkerElement({ position: { lat: g.lat, lng: g.lng }, map: map, content: el, zIndex: 60 });
+            mk.addListener("click", () => focusTown(g.key));
+            conquestShapes.push(mk);
+        });
+    }
+    function focusTown(key) {
+        conquestMode = false;
+        document.getElementById('conquestBtn').classList.remove('on');
+        clearConquest();
+        document.getElementById('searchInput').value = key;
+        doSearch();
+    }
+    function buildTownCards(area) {
+        const stats = townStats().slice().sort((a, b) => b.pct - a.pct || b.total - a.total);
+        const tv = stats.reduce((s, g) => s + g.visited, 0), tt = stats.reduce((s, g) => s + g.total, 0);
+        const tpct = tt ? Math.round(tv / tt * 100) : 0;
+        const head = document.createElement('div');
+        head.className = 'customer-item';
+        head.innerHTML = `<div style="flex:1;"><div class="info-main no-company"><span class="shop-name">エリア制覇 ${tpct}%</span></div><div class="card-meta"><span>${targetReps.length ? "自分の担当" : "全担当"}：訪問済み ${tv} / ${tt}件</span></div><div class="town-bar"><div class="town-fill" style="width:${tpct}%;background:${rateColor(tpct)};"></div></div><div class="info-sub" style="margin-top:6px;">町をタップすると、その町の店が表示されます</div></div>`;
+        area.appendChild(head);
+        stats.forEach(g => {
+            const div = document.createElement('div');
+            div.className = 'customer-item';
+            div.innerHTML = `<div style="flex:1;"><div class="info-main no-company"><span class="shop-name">${g.label}</span></div><div class="card-meta"><span>訪問済み ${g.visited} / ${g.total}件（${g.pct}%）</span><span class="meta-sep"></span><span>未訪問 ${g.total - g.visited}件</span></div><div class="town-bar"><div class="town-fill" style="width:${g.pct}%;background:${rateColor(g.pct)};"></div></div></div>`;
+            div.addEventListener('click', () => focusTown(g.key));
+            area.appendChild(div);
+        });
+    }
+    (function initSegDrag() {
+        const bar = document.querySelector('.seg-bar');
+        if(!bar) return;
+        let drag = null;
+        bar.addEventListener('pointerdown', (e) => {
+            const thumb = bar.querySelector('.seg-thumb');
+            if(!thumb) return;
+            drag = { x: e.clientX, moved: false };
+            thumb.style.transition = 'none';
+        });
+        bar.addEventListener('pointermove', (e) => {
+            if(!drag) return;
+            if(Math.abs(e.clientX - drag.x) > 6) drag.moved = true;
+            if(!drag.moved) return;
+            const thumb = bar.querySelector('.seg-thumb');
+            if(!thumb) return;
+            const r = bar.getBoundingClientRect();
+            const w = thumb.offsetWidth;
+            let x = e.clientX - r.left - w / 2;
+            x = Math.max(3, Math.min(r.width - 3 - w, x));
+            thumb.style.transform = 'translateX(' + x + 'px)';
+        });
+        const end = (e) => {
+            if(!drag) return;
+            const wasDrag = drag.moved;
+            drag = null;
+            const thumb = bar.querySelector('.seg-thumb');
+            if(thumb) thumb.style.transition = '';
+            if(wasDrag) {
+                window._segDragAt = Date.now();
+                const btns = Array.from(bar.querySelectorAll('.seg-btn'));
+                const hit = btns.find(b => { const br = b.getBoundingClientRect(); return e.clientX >= br.left && e.clientX <= br.right; });
+                if(hit) setProspectMode(hit.dataset.pmode, true);
+                else positionSegThumb();
+            }
+        };
+        bar.addEventListener('pointerup', end);
+        bar.addEventListener('pointercancel', end);
+        window.addEventListener('resize', () => positionSegThumb(false));
+    })();
+    function selectProspect(id) {
+        highlightedProspectId = id;
+        highlightedId = null;
+        updateMapPins(window._lastDisplay || []);
+        const area = document.getElementById('result-area');
+        const cardEl = area.querySelector('.prospect-item[data-pid="' + id + '"]');
+        document.querySelectorAll('.customer-item.highlighted').forEach(el => el.classList.remove('highlighted'));
+        if(cardEl) {
+            cardEl.classList.add('highlighted');
+            const aR = area.getBoundingClientRect(), cR = cardEl.getBoundingClientRect();
+            window._suppressSettleUntil = Date.now() + 1600;
+            area.scrollTo({ left: area.scrollLeft + (cR.left - aR.left) - (aR.width - cR.width) / 2, behavior: 'smooth' });
+        }
+    }
+    function syncProspectBar() {
+        document.querySelectorAll('.seg-btn[data-pmode]').forEach(b => b.classList.toggle('on', b.dataset.pmode === prospectMode));
+        positionSegThumb();
+        const r = document.getElementById('prospectRestore');
+        if(r) r.style.display = prospectHiddenSet().size > 0 ? '' : 'none';
+    }
+    function positionSegThumb(animate) {
+        const bar = document.querySelector('.seg-bar');
+        if(!bar) return;
+        const btn = bar.querySelector('.seg-btn.on');
+        if(!btn) return;
+        let thumb = bar.querySelector('.seg-thumb');
+        if(!thumb) { thumb = document.createElement('div'); thumb.className = 'seg-thumb'; bar.insertBefore(thumb, bar.firstChild); }
+        if(animate === false) thumb.style.transition = 'none'; else thumb.style.transition = '';
+        thumb.style.width = btn.offsetWidth + 'px';
+        thumb.style.transform = 'translateX(' + btn.offsetLeft + 'px)';
+        if(animate === false) requestAnimationFrame(() => { thumb.style.transition = ''; });
+    }
+    function setProspectMode(m, fromDrag) {
+        if(['both', 'only', 'off'].indexOf(m) === -1) return;
+        if(!fromDrag && window._segDragAt && Date.now() - window._segDragAt < 350) return;
+        prospectMode = m;
+        try { localStorage.setItem('map_prospect_mode', m); } catch(e) {}
+        if(m === 'off') highlightedProspectId = null;
+        syncProspectBar();
+        render();
+    }
+    function restoreHiddenProspects() {
+        saveProspectHidden(new Set()); candVer++;
+        syncProspectBar();
+        render();
+    }
+    function openProspectEdit(id) {
+        const p = prospects.find(x => x.id === id);
+        if(!p) return;
+        document.getElementById('pedit-id').value = p.id;
+        document.getElementById('pedit-orig-addr').value = p.address || "";
+        document.getElementById('pedit-name').value = p.name || "";
+        document.getElementById('pedit-genre').value = p.genre || "";
+        document.getElementById('pedit-addr').value = p.address || "";
+        document.getElementById('pedit-tel').value = p.tel || "";
+        document.getElementById('pedit-station').value = p.station || "";
+        document.getElementById('pedit-jobsrc').value = p.jobSource || "";
+        document.getElementById('pedit-joburl').value = p.jobUrl || "";
+        document.getElementById('pedit-note').value = p.note || "";
+        const edits = loadProspectEdits();
+        document.getElementById('pedit-reset').style.display = edits[p.id] ? '' : 'none';
+        document.getElementById('prospectEditModal').style.display = 'flex';
+    }
+    function closeProspectModal() { document.getElementById('prospectEditModal').style.display = 'none'; }
+    function clearProspectGeo(id) {
+        try { const cache = JSON.parse(localStorage.getItem('map_prospect_geo') || "{}"); delete cache[id]; localStorage.setItem('map_prospect_geo', JSON.stringify(cache)); } catch(e) {}
+    }
+    function saveProspectEdit() {
+        const id = document.getElementById('pedit-id').value;
+        const idx = prospects.findIndex(x => x.id === id);
+        if(idx === -1) { closeProspectModal(); return; }
+        const base = prospectsRaw.find(x => x.id === id) || {};
+        const form = {
+            name: document.getElementById('pedit-name').value.trim(),
+            genre: document.getElementById('pedit-genre').value.trim(),
+            address: document.getElementById('pedit-addr').value.trim(),
+            tel: document.getElementById('pedit-tel').value.trim(),
+            station: document.getElementById('pedit-station').value.trim(),
+            jobSource: document.getElementById('pedit-jobsrc').value.trim(),
+            jobUrl: document.getElementById('pedit-joburl').value.trim(),
+            note: document.getElementById('pedit-note').value
+        };
+        const override = {};
+        ['name', 'genre', 'address', 'tel', 'station', 'jobSource', 'jobUrl'].forEach(k => { if(form[k] !== (base[k] || "")) override[k] = form[k]; });
+        if(form.note) override.note = form.note;
+        const edits = loadProspectEdits();
+        if(Object.keys(override).length) edits[id] = override; else delete edits[id];
+        saveProspectEdits(edits);
+        const addrChanged = form.address !== (document.getElementById('pedit-orig-addr').value || "");
+        const merged = Object.assign({}, base, override);
+        if(addrChanged) { merged.lat = null; merged.lng = null; clearProspectGeo(id); }
+        else { merged.lat = prospects[idx].lat; merged.lng = prospects[idx].lng; }
+        prospects[idx] = merged; candVer++;
+        closeProspectModal();
+        render();
+        maybeGeocodeProspects();
+    }
+    function hideProspect() {
+        const id = document.getElementById('pedit-id').value;
+        const set = prospectHiddenSet(); set.add(id); saveProspectHidden(set); candVer++;
+        if(highlightedProspectId === id) highlightedProspectId = null;
+        closeProspectModal();
+        syncProspectBar();
+        render();
+    }
+    function resetProspectEdit() {
+        const id = document.getElementById('pedit-id').value;
+        const edits = loadProspectEdits(); delete edits[id]; saveProspectEdits(edits); candVer++;
+        const idx = prospects.findIndex(x => x.id === id);
+        const base = prospectsRaw.find(x => x.id === id);
+        if(idx !== -1 && base) {
+            const cur = prospects[idx];
+            prospects[idx] = Object.assign({}, base);
+            if(base.address !== (document.getElementById('pedit-orig-addr').value || "")) { prospects[idx].lat = null; prospects[idx].lng = null; clearProspectGeo(id); }
+            else { prospects[idx].lat = cur.lat; prospects[idx].lng = cur.lng; }
+        }
+        closeProspectModal();
+        render();
+        maybeGeocodeProspects();
+    }
+
     // カルーセルの終端が近づいたら次のカードを自動で足す
     (function(){
         const area = document.getElementById('result-area');
@@ -1548,10 +2145,25 @@
                 const areaLeft = area.getBoundingClientRect().left;
                 let best = null, bestDx = Infinity;
                 cards.forEach(el => { const dx = Math.abs(el.getBoundingClientRect().left - areaLeft); if(dx < bestDx) { bestDx = dx; best = el; } });
-                if(!best || !best.dataset.id || String(best.dataset.id) === String(highlightedId)) return;
+                if(!best) return;
+                if(best.dataset.pid) {
+                    const pid = best.dataset.pid;
+                    if(pid === String(highlightedProspectId)) return;
+                    const pr = prospects.find(x => x.id === pid);
+                    if(!pr) return;
+                    highlightedProspectId = pid;
+                    highlightedId = null;
+                    document.querySelectorAll('.customer-item.highlighted').forEach(el => el.classList.remove('highlighted'));
+                    best.classList.add('highlighted');
+                    renderProspectPins();
+                    if(map && pr.lat != null && pr.lng != null) { window._syncSuppressUntil = Date.now() + 900; releaseFollow(); map.panTo({ lat: pr.lat, lng: pr.lng }); }
+                    return;
+                }
+                if(!best.dataset.id || String(best.dataset.id) === String(highlightedId)) return;
                 const c = db.find(d => String(d.id) === String(best.dataset.id));
                 if(!c) return;
                 highlightedId = c.id;
+                highlightedProspectId = null;
                 document.querySelectorAll('.customer-item.highlighted').forEach(el => el.classList.remove('highlighted'));
                 best.classList.add('highlighted');
                 if(window._lastDisplay) { window._pinsNoFit = true; updateMapPins(window._lastDisplay); }
